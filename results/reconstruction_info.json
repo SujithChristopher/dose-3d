@@ -1,0 +1,13 @@
+{
+  "volume_shape": [
+    50,
+    50,
+    50
+  ],
+  "n_projections": 415,
+  "angle_range": [
+    0.59316596011047,
+    359.685502574069
+  ],
+  "dose_range": [
+    
