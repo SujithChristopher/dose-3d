@@ -7,7 +7,11 @@
       "Bash(rg:*)",
       "Bash(grep:*)",
       "Bash(mv:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(conda activate:*)",
+      "Bash(call conda activate py12)",
+      "Bash(source:*)",
+      "Bash(timeout 60 python:*)"
     ],
     "deny": []
   }

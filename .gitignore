@@ -72,3 +72,51 @@ docs/_build/
 .python-version
 
 dataset
+
+# cx_Freeze build artifacts
+build/
+*.exe
+*.msi
+*.dmg
+*.pkg
+
+# Compiled application distribution
+dist/
+*.zip
+*.tar.gz
+*.app
+
+# Portable application packages
+portable_epid_gui/
+EPID_Reconstruction_GUI_Portable.zip
+
+# cx_Freeze specific
+setup_freeze.py.bak
+
+# Application logs and temp files
+*.tmp
+*.temp
+colormap_test.png
+
+# Test outputs
+test_results/
+*.test
+*.bench
+
+# IDE and editor files
+*.swp
+*.swo
+*~
+
+# OS specific
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# TPS DICOM file (copied to current directory for packaging)
+EPID_12_t0.dcm

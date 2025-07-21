@@ -1,0 +1,8 @@
+{
+  "vol_size": 25,
+  "n_projections": 100,
+  "reconstruction_time": 1.9103047847747803,
+  "translation_stats": {
+    "has_translations": true,
+    "count": 100,
+    "mean_translation": 
