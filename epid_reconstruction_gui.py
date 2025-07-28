@@ -275,6 +275,7 @@ class ReconstructionWorker(QThread):
             
             # Reconstruct
             rec_image = self.reconstruct_chunked(reconstructor, processed_images, processed_angles)
+            rec_image = np.transpose(rec_image, (2,1,0))
             
             self.progress_update.emit(100)
             self.status_update.emit("Reconstruction complete!")
@@ -960,13 +961,13 @@ class EPIDReconstructionGUI(QMainWindow):
         # Show summary
         params = result['parameters']
         summary = f"""
-Reconstruction Complete!
-Volume shape: {self.current_volume.shape}
-Value range: {self.current_volume.min():.2f} to {self.current_volume.max():.2f}
-Projections: {params['n_projections']}
-SOD: {params['SOD']:.1f} mm
-SDD: {params['SDD']:.1f} mm
-"""
+                    Reconstruction Complete!
+                    Volume shape: {self.current_volume.shape}
+                    Value range: {self.current_volume.min():.2f} to {self.current_volume.max():.2f}
+                    Projections: {params['n_projections']}
+                    SOD: {params['SOD']:.1f} mm
+                    SDD: {params['SDD']:.1f} mm
+                    """
         self.update_status(summary)
         
         # Re-enable controls

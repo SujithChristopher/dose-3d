@@ -11,7 +11,20 @@
       "Bash(conda activate:*)",
       "Bash(call conda activate py12)",
       "Bash(source:*)",
-      "Bash(timeout 60 python:*)"
+      "Bash(timeout 60 python:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(C:UsersPintuminiconda3envspy12python.exe -m pip install pyinstaller)",
+      "Bash(C:UsersPintuminiconda3Scriptsactivate.bat py12)",
+      "Bash(cmd /c:*)",
+      "Bash(C:UsersPintuminiconda3envspy12python.exe -c \"import pyinstaller; print(''PyInstaller found'')\")",
+      "Bash(rm:*)",
+      "Bash(.EPID_Reconstruction_GUI.exe)",
+      "Bash(./EPID_Reconstruction_GUI.exe)",
+      "Bash(find:*)",
+      "Bash(timeout:*)",
+      "Bash(echo:*)",
+      "Bash(pip install:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

@@ -103,3 +103,7 @@ dataset/
 5. **Results Analysis**: Examine outputs in `results/` directory
 
 The project emphasizes iterative development through notebooks while maintaining production-ready reconstruction pipelines in the main Python scripts.
+
+## Build and Development Memories
+
+- Memorize to use this to build the application, remove other related build-related files to avoid confusion
