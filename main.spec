@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['epid_reconstruction_gui.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[('EPID_12_t0.dcm', '.'), ('tps_reference_data.py', '.')],

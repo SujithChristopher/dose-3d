@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, Q
                                 QStatusBar, QMessageBox)
 
 from .workers.reconstruction_worker import ReconstructionWorker
+from .calibration import load_calibration, apply_calibration
 from .widgets.volume_viewer import InteractiveVolumeViewer
 from .widgets.export_widget import ExportWidget
 from .widgets.dicom_addition import DicomAdditionWidget
@@ -23,6 +24,7 @@ class EPIDReconstructionGUI(QMainWindow):
 
         self.current_volume = None
         self.worker = None
+        self.calibration = None
 
         self.setup_ui()
         self.setup_menu()
@@ -74,6 +76,31 @@ class EPIDReconstructionGUI(QMainWindow):
         data_layout.addWidget(self.browse_button)
 
         left_layout.addWidget(data_group)
+
+        # Dose calibration
+        calib_group = QGroupBox("Dose Calibration (optional)")
+        calib_layout = QVBoxLayout(calib_group)
+
+        self.calibration_label = QLabel("No calibration loaded")
+        self.calibration_label.setWordWrap(True)
+        calib_layout.addWidget(self.calibration_label)
+
+        self.load_calibration_button = QPushButton("Load Calibration (JSON)...")
+        self.load_calibration_button.clicked.connect(self.load_calibration_file)
+        calib_layout.addWidget(self.load_calibration_button)
+
+        self.apply_calibration_check = QCheckBox("Apply Calibration to Reconstruction")
+        self.apply_calibration_check.setEnabled(False)
+        calib_layout.addWidget(self.apply_calibration_check)
+
+        self.include_intercept_check = QCheckBox("Include Intercept Offset")
+        self.include_intercept_check.setToolTip(
+            "Off (default) = slope-only scaling: dose = slope * pixel.\n"
+            "On = dose = slope * pixel + intercept.")
+        self.include_intercept_check.setEnabled(False)
+        calib_layout.addWidget(self.include_intercept_check)
+
+        left_layout.addWidget(calib_group)
 
         # Reconstruction parameters
         params_group = QGroupBox("Reconstruction Parameters")
@@ -201,6 +228,27 @@ class EPIDReconstructionGUI(QMainWindow):
             self.reconstruct_button.setEnabled(True)
             self.status_bar.showMessage(f"Data folder selected: {folder}")
 
+    def load_calibration_file(self):
+        """Load a pixel<->dose calibration JSON exported from the Dose Calibration tab"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Calibration", "", "JSON Files (*.json);;All Files (*)")
+        if not file_path:
+            return
+
+        try:
+            self.calibration = load_calibration(file_path)
+            fit = self.calibration['fit']
+            self.calibration_label.setText(
+                f"Loaded: {Path(file_path).name}\n"
+                f"slope={fit['slope']:.4g}, intercept={fit['intercept']:.4g}, R^2={fit['r_squared']:.4f}")
+            self.apply_calibration_check.setEnabled(True)
+            self.apply_calibration_check.setChecked(True)
+            self.include_intercept_check.setEnabled(True)
+            self.status_bar.showMessage(f"Calibration loaded: {Path(file_path).name}")
+        except Exception as e:
+            self.calibration = None
+            QMessageBox.critical(self, "Calibration Error", f"Failed to load calibration:\n{str(e)}")
+
     def start_reconstruction(self):
         """Start reconstruction in worker thread"""
         if not hasattr(self, 'data_path'):
@@ -235,7 +283,15 @@ class EPIDReconstructionGUI(QMainWindow):
 
     def reconstruction_complete(self, result):
         """Handle reconstruction completion"""
-        self.current_volume = result['reconstructed_volume']
+        volume = result['reconstructed_volume']
+        units = "raw pixel value"
+
+        if self.calibration is not None and self.apply_calibration_check.isChecked():
+            include_intercept = self.include_intercept_check.isChecked()
+            volume = apply_calibration(volume, self.calibration, include_intercept=include_intercept)
+            units = "cGy, calibrated" if include_intercept else "cGy, slope-only calibrated"
+
+        self.current_volume = volume
 
         # Update viewers
         self.volume_viewer.set_volume(self.current_volume)
@@ -244,7 +300,7 @@ class EPIDReconstructionGUI(QMainWindow):
         # Show summary
         params = result['parameters']
         summary = f"""
-                    Reconstruction Complete!
+                    Reconstruction Complete! ({units})
                     Volume shape: {self.current_volume.shape}
                     Value range: {self.current_volume.min():.2f} to {self.current_volume.max():.2f}
                     Projections: {params['n_projections']}
