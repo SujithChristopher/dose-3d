@@ -24,7 +24,9 @@
       "Bash(timeout:*)",
       "Bash(echo:*)",
       "Bash(pip install:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(gh --version)",
+      "Bash(uv --version)"
     ],
     "deny": []
   }
