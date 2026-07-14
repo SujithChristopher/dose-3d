@@ -117,6 +117,3 @@ Desktop.ini
 *.bak
 *.backup
 *.old
-
-# TPS DICOM file (copied to current directory for packaging)
-EPID_12_t0.dcm
