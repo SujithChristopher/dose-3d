@@ -17,6 +17,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from src.optional_deps import PYDICOM_AVAILABLE
 from src.main_window import EPIDReconstructionGUI
+from src._version import __version__
+from src.updater import check_for_update_async
 
 
 def main():
@@ -25,7 +27,7 @@ def main():
 
     # Set application properties
     app.setApplicationName("EPID Reconstruction GUI")
-    app.setApplicationVersion("1.0")
+    app.setApplicationVersion(__version__)
 
     # Check dependencies
     missing_deps = []
@@ -41,6 +43,8 @@ def main():
     # Create and show main window
     window = EPIDReconstructionGUI()
     window.show()
+
+    check_for_update_async(window)
 
     return app.exec()
 
