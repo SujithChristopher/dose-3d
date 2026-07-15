@@ -151,8 +151,8 @@ class DoseCalibrationWidget(QWidget):
 
     def _reset_plot(self):
         self.ax.clear()
-        self.ax.set_xlabel("Pixel Value (center 3x3x3 mean)")
-        self.ax.set_ylabel("Dose (cGy)")
+        self.ax.set_xlabel("Dose (cGy)")
+        self.ax.set_ylabel("Pixel Value (center 3x3x3 mean)")
         self.ax.set_title("Dose Calibration")
         self.ax.grid(True, alpha=0.3)
         self.canvas.draw()
@@ -286,7 +286,7 @@ class DoseCalibrationWidget(QWidget):
         if row is not None:
             self.table.item(row, 4).setText("Done")
             self.table.item(row, 5).setText(f"{pixel_value:.2f}")
-        self.ax.scatter([pixel_value], [dose], color='tab:blue')
+        self.ax.scatter([dose], [pixel_value], color='tab:blue')
         self.canvas.draw()
 
     def on_acquisition_failed(self, label, error):
@@ -305,13 +305,13 @@ class DoseCalibrationWidget(QWidget):
 
         pixel_values = np.array([r['pixel_value'] for r in results])
         doses = np.array([r['dose_cGy'] for r in results])
-        fit = linregress(pixel_values, doses)
+        fit = linregress(doses, pixel_values)
         self.fit_result = (fit.slope, fit.intercept, fit.rvalue)
 
-        x_line = np.linspace(pixel_values.min(), pixel_values.max(), 50)
+        x_line = np.linspace(doses.min(), doses.max(), 50)
         y_line = fit.slope * x_line + fit.intercept
         self.ax.plot(x_line, y_line, color='tab:red',
-                     label=f"dose = {fit.slope:.4g}*pixel + {fit.intercept:.4g}\nR^2 = {fit.rvalue**2:.4f}")
+                     label=f"pixel = {fit.slope:.4g}*dose + {fit.intercept:.4g}\nR^2 = {fit.rvalue**2:.4f}")
         self.ax.legend(loc='best', fontsize=8)
         self.canvas.draw()
 
@@ -346,7 +346,7 @@ class DoseCalibrationWidget(QWidget):
                 'slope': slope,
                 'intercept': intercept,
                 'r_squared': r_value ** 2,
-                'formula': 'dose_cGy = slope * pixel_value + intercept'
+                'formula': 'pixel_value = slope * dose_cGy + intercept'
             }
         }
 
