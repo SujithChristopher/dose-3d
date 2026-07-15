@@ -2,4 +2,4 @@
 by create-release.ps1. Do not edit by hand outside that script.
 """
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
