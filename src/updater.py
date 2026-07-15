@@ -36,6 +36,8 @@ def _parse_version(v: str) -> tuple[int, ...]:
 
 class _UpdateCheckWorker(QObject):
     found = Signal(str, str)  # version, download_url
+    not_found = Signal()  # checked OK, already on the latest version
+    check_error = Signal(str)  # message
     finished = Signal()
 
     def run(self):
@@ -55,15 +57,21 @@ class _UpdateCheckWorker(QObject):
                 )
                 if download_url:
                     self.found.emit(latest_tag, download_url)
-        except (urllib.error.URLError, ValueError, OSError):
-            pass  # offline or GitHub unreachable - fail silently
+                else:
+                    self.check_error.emit(f"Release {latest_tag} has no {ASSET_NAME} asset.")
+            else:
+                self.not_found.emit()
+        except (urllib.error.URLError, ValueError, OSError) as e:
+            self.check_error.emit(str(e))
         finally:
             self.finished.emit()
 
 
 def check_for_update_async(parent):
-    """Kick off a background update check; prompts the user only if a newer
-    release with a matching exe asset is found."""
+    """Kick off a silent background update check on startup; prompts the user
+    only if a newer release with a matching exe asset is found. Any other
+    outcome (no update, network error) is intentionally not shown - use
+    check_for_update_manual for a check that always reports its result."""
     if not getattr(sys, "frozen", False):
         return
 
@@ -78,7 +86,32 @@ def check_for_update_async(parent):
     thread.start()
 
 
+def check_for_update_manual(parent):
+    """User-triggered update check (e.g. Help menu) - always shows a dialog,
+    whether that's an available update, "already up to date", or an error."""
+    thread = QThread(parent)
+    worker = _UpdateCheckWorker()
+    worker.moveToThread(thread)
+    thread.started.connect(worker.run)
+    worker.found.connect(lambda version, url: _prompt_update(parent, version, url))
+    worker.not_found.connect(lambda: QMessageBox.information(
+        parent, "No updates available", f"You're running the latest version ({__version__})."))
+    worker.check_error.connect(lambda msg: QMessageBox.warning(
+        parent, "Update check failed", f"Could not check for updates:\n{msg}"))
+    worker.finished.connect(thread.quit)
+    thread.finished.connect(thread.deleteLater)
+    parent._update_thread = thread  # keep a reference so it isn't GC'd mid-flight
+    thread.start()
+
+
 def _prompt_update(parent, version, download_url):
+    if not getattr(sys, "frozen", False):
+        QMessageBox.information(
+            parent, "Update available",
+            f"A new version ({version}) is available. You're running {__version__} from source.\n\n"
+            f"Download it from: https://github.com/{GITHUB_REPO}/releases/latest")
+        return
+
     reply = QMessageBox.question(
         parent,
         "Update available",

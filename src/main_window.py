@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, Q
 
 from .workers.reconstruction_worker import ReconstructionWorker
 from .calibration import load_calibration, apply_calibration
+from .updater import check_for_update_manual
 from .widgets.volume_viewer import InteractiveVolumeViewer
 from .widgets.export_widget import ExportWidget
 from .widgets.dicom_addition import DicomAdditionWidget
@@ -95,8 +96,8 @@ class EPIDReconstructionGUI(QMainWindow):
 
         self.include_intercept_check = QCheckBox("Include Intercept Offset")
         self.include_intercept_check.setToolTip(
-            "Off (default) = slope-only scaling: dose = slope * pixel.\n"
-            "On = dose = slope * pixel + intercept.")
+            "Off (default) = slope-only scaling: dose = pixel / slope.\n"
+            "On = dose = (pixel - intercept) / slope.")
         self.include_intercept_check.setEnabled(False)
         calib_layout.addWidget(self.include_intercept_check)
 
@@ -200,6 +201,8 @@ class EPIDReconstructionGUI(QMainWindow):
 
         # Help menu
         help_menu = menubar.addMenu('Help')
+        help_menu.addAction('Check for Updates...', self.check_for_updates)
+        help_menu.addSeparator()
         help_menu.addAction('About', self.show_about)
 
     def setup_status_bar(self):
@@ -325,6 +328,10 @@ class EPIDReconstructionGUI(QMainWindow):
         """Reset volume viewer"""
         if self.current_volume is not None:
             self.volume_viewer.set_volume(self.current_volume)
+
+    def check_for_updates(self):
+        """Manually check for a new release (Help > Check for Updates...)"""
+        check_for_update_manual(self)
 
     def show_about(self):
         """Show about dialog"""
