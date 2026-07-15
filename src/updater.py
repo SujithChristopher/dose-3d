@@ -41,6 +41,7 @@ class _UpdateCheckWorker(QObject):
     finished = Signal()
 
     def run(self):
+        print(f"[updater] checking {API_URL} (current version {__version__})")
         try:
             req = urllib.request.Request(
                 API_URL, headers={"Accept": "application/vnd.github+json"}
@@ -49,6 +50,7 @@ class _UpdateCheckWorker(QObject):
                 data = json.load(resp)
 
             latest_tag = data.get("tag_name", "")
+            print(f"[updater] latest release tag: {latest_tag!r}")
             if _parse_version(latest_tag) > _parse_version(__version__):
                 download_url = next(
                     (a.get("browser_download_url") for a in data.get("assets", [])
@@ -56,15 +58,69 @@ class _UpdateCheckWorker(QObject):
                     None,
                 )
                 if download_url:
+                    print(f"[updater] update found: {latest_tag} -> {download_url}")
                     self.found.emit(latest_tag, download_url)
                 else:
+                    print(f"[updater] release {latest_tag} has no asset named {ASSET_NAME!r}")
                     self.check_error.emit(f"Release {latest_tag} has no {ASSET_NAME} asset.")
             else:
+                print("[updater] already up to date")
                 self.not_found.emit()
         except (urllib.error.URLError, ValueError, OSError) as e:
+            print(f"[updater] check failed: {e!r}")
             self.check_error.emit(str(e))
         finally:
             self.finished.emit()
+
+
+class _UpdateNotifier(QObject):
+    """Lives on the GUI thread (constructed there, parented to the main
+    window) so the worker's signals have a real QObject to dispatch to.
+
+    A lambda has no QObject '__self__', so Qt's AutoConnection has nothing to
+    read a thread affinity off and just calls it directly on the worker
+    thread - explicitly requesting Qt.QueuedConnection doesn't fix that, since
+    queuing still needs a receiver object to know *which* thread to queue
+    into. Bound methods on this notifier give it one."""
+
+    def __init__(self, parent, show_all_outcomes):
+        super().__init__(parent)
+        self.parent = parent
+        self.show_all_outcomes = show_all_outcomes
+
+    def on_found(self, version, download_url):
+        _prompt_update(self.parent, version, download_url)
+
+    def on_not_found(self):
+        if self.show_all_outcomes:
+            QMessageBox.information(
+                self.parent, "No updates available",
+                f"You're running the latest version ({__version__}).")
+
+    def on_check_error(self, message):
+        if self.show_all_outcomes:
+            QMessageBox.warning(
+                self.parent, "Update check failed", f"Could not check for updates:\n{message}")
+
+
+def _start_update_check(parent, show_all_outcomes):
+    thread = QThread(parent)
+    worker = _UpdateCheckWorker()
+    notifier = _UpdateNotifier(parent, show_all_outcomes)
+    worker.moveToThread(thread)
+    thread.started.connect(worker.run)
+    worker.found.connect(notifier.on_found)
+    worker.not_found.connect(notifier.on_not_found)
+    worker.check_error.connect(notifier.on_check_error)
+    worker.finished.connect(thread.quit)
+    thread.finished.connect(thread.deleteLater)
+    # keep references so none of these are GC'd mid-flight - losing the
+    # worker in particular silently drops the queued run() call before it
+    # ever fires
+    parent._update_thread = thread
+    parent._update_worker = worker
+    parent._update_notifier = notifier
+    thread.start()
 
 
 def check_for_update_async(parent):
@@ -73,38 +129,20 @@ def check_for_update_async(parent):
     outcome (no update, network error) is intentionally not shown - use
     check_for_update_manual for a check that always reports its result."""
     if not getattr(sys, "frozen", False):
+        print("[updater] running from source, skipping silent startup check")
         return
-
-    thread = QThread(parent)
-    worker = _UpdateCheckWorker()
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.found.connect(lambda version, url: _prompt_update(parent, version, url))
-    worker.finished.connect(thread.quit)
-    thread.finished.connect(thread.deleteLater)
-    parent._update_thread = thread  # keep a reference so it isn't GC'd mid-flight
-    thread.start()
+    _start_update_check(parent, show_all_outcomes=False)
 
 
 def check_for_update_manual(parent):
     """User-triggered update check (e.g. Help menu) - always shows a dialog,
     whether that's an available update, "already up to date", or an error."""
-    thread = QThread(parent)
-    worker = _UpdateCheckWorker()
-    worker.moveToThread(thread)
-    thread.started.connect(worker.run)
-    worker.found.connect(lambda version, url: _prompt_update(parent, version, url))
-    worker.not_found.connect(lambda: QMessageBox.information(
-        parent, "No updates available", f"You're running the latest version ({__version__})."))
-    worker.check_error.connect(lambda msg: QMessageBox.warning(
-        parent, "Update check failed", f"Could not check for updates:\n{msg}"))
-    worker.finished.connect(thread.quit)
-    thread.finished.connect(thread.deleteLater)
-    parent._update_thread = thread  # keep a reference so it isn't GC'd mid-flight
-    thread.start()
+    print("[updater] manual check triggered")
+    _start_update_check(parent, show_all_outcomes=True)
 
 
 def _prompt_update(parent, version, download_url):
+    print(f"[updater] prompting for update to {version} (frozen={getattr(sys, 'frozen', False)})")
     if not getattr(sys, "frozen", False):
         QMessageBox.information(
             parent, "Update available",

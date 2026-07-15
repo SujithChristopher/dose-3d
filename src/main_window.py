@@ -331,6 +331,7 @@ class EPIDReconstructionGUI(QMainWindow):
 
     def check_for_updates(self):
         """Manually check for a new release (Help > Check for Updates...)"""
+        print("[updater] Check for Updates clicked")
         check_for_update_manual(self)
 
     def show_about(self):
