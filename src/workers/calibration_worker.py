@@ -1,8 +1,11 @@
 """Background worker that batch-reconstructs dose-labeled EPID acquisitions for calibration."""
+from pathlib import Path
+
 import numpy as np
 from PySide6.QtCore import QThread, Signal
 
 from .reconstruction_worker import ReconstructionWorker
+from ..optional_deps import export_reconstructed_dicom
 
 
 class BatchCalibrationWorker(QThread):
@@ -14,15 +17,25 @@ class BatchCalibrationWorker(QThread):
     acquisition_failed = Signal(str, str)          # folder_label, error message
     finished_all = Signal(list)        # list of {'folder', 'dose_cGy', 'pixel_value'}
 
-    def __init__(self, acquisitions, reconstruction_params):
-        """acquisitions: list of (dcm_folder_path, folder_label, dose_cGy)"""
+    def __init__(self, acquisitions, reconstruction_params, dataset_root=None):
+        """acquisitions: list of (dcm_folder_path, folder_label, dose_cGy)
+        dataset_root: parent folder to save reconstructed volumes under, in a
+        'recons' subfolder (one TPS-templated DICOM per acquisition). None disables saving."""
         super().__init__()
         self.acquisitions = acquisitions
         self.params = reconstruction_params
+        self.recons_dir = Path(dataset_root) / "recons" if dataset_root else None
 
     def run(self):
         results = []
         n = len(self.acquisitions)
+        if self.recons_dir is not None:
+            if export_reconstructed_dicom is None:
+                self.status_update.emit(
+                    "TPS template not available - reconstructed volumes will not be saved.")
+            else:
+                self.recons_dir.mkdir(parents=True, exist_ok=True)
+
         for i, (path, label, dose) in enumerate(self.acquisitions):
             try:
                 self.status_update.emit(f"Reconstructing {label} ({dose} cGy)...")
@@ -42,6 +55,9 @@ class BatchCalibrationWorker(QThread):
                 cz, cy, cx = (s // 2 for s in vol.shape)
                 patch = vol[cz - 1:cz + 2, cy - 1:cy + 2, cx - 1:cx + 2]
                 pixel_value = float(np.mean(patch))
+
+                if self.recons_dir is not None and export_reconstructed_dicom is not None:
+                    export_reconstructed_dicom(vol, str(self.recons_dir / f"{label}.dcm"), scale_factor=1.0)
 
                 results.append({'folder': label, 'dose_cGy': dose, 'pixel_value': pixel_value})
                 self.acquisition_done.emit(label, dose, pixel_value)

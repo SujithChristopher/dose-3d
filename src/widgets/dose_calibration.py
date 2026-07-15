@@ -270,7 +270,7 @@ class DoseCalibrationWidget(QWidget):
             'every_nth': self.every_nth_spin.value(),
         }
 
-        self.batch_worker = BatchCalibrationWorker(acquisitions, self.last_params)
+        self.batch_worker = BatchCalibrationWorker(acquisitions, self.last_params, self.dataset_root)
         self.batch_worker.progress_update.connect(self.progress_bar.setValue)
         self.batch_worker.status_update.connect(self.append_status)
         self.batch_worker.acquisition_done.connect(self.on_acquisition_done)
