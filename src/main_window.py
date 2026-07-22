@@ -287,21 +287,28 @@ class EPIDReconstructionGUI(QMainWindow):
     def reconstruction_complete(self, result):
         """Handle reconstruction completion"""
         volume = result['reconstructed_volume']
+        params = result['parameters']
         units = "raw pixel value"
+        # Uncalibrated volumes are not dose, so they export as RELATIVE; a
+        # calibrated volume is cGy and needs x0.01 to be written as DICOM GY.
+        dose_units, unit_scale = 'RELATIVE', 1.0
 
         if self.calibration is not None and self.apply_calibration_check.isChecked():
             include_intercept = self.include_intercept_check.isChecked()
             volume = apply_calibration(volume, self.calibration, include_intercept=include_intercept)
             units = "cGy, calibrated" if include_intercept else "cGy, slope-only calibrated"
+            dose_units, unit_scale = 'GY', 0.01
 
         self.current_volume = volume
 
         # Update viewers
         self.volume_viewer.set_volume(self.current_volume)
-        self.export_widget.set_reconstructed_volume(self.current_volume)
+        self.export_widget.set_reconstructed_volume(
+            self.current_volume, geometry=params,
+            dose_units=dose_units, unit_scale=unit_scale)
 
         # Show summary
-        params = result['parameters']
+        dz, dy, dx = params['voxel_size_mm']
         summary = f"""
                     Reconstruction Complete! ({units})
                     Volume shape: {self.current_volume.shape}
@@ -309,6 +316,8 @@ class EPIDReconstructionGUI(QMainWindow):
                     Projections: {params['n_projections']}
                     SOD: {params['SOD']:.1f} mm
                     SDD: {params['SDD']:.1f} mm
+                    Detector pixel: {params['detector_pixel_mm']:.3f} mm
+                    Voxel (z,y,x): {dz:.2f} x {dy:.2f} x {dx:.2f} mm
                     """
         self.update_status(summary)
 

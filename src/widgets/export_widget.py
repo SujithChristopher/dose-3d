@@ -13,6 +13,9 @@ class ExportWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.reconstructed_volume = None
+        self.geometry = None
+        self.dose_units = 'RELATIVE'
+        self.unit_scale = 1.0
         self.setup_ui()
 
     def setup_ui(self):
@@ -64,9 +67,18 @@ class ExportWidget(QWidget):
 
         layout.addStretch()
 
-    def set_reconstructed_volume(self, volume):
-        """Set reconstructed volume for export"""
+    def set_reconstructed_volume(self, volume, geometry=None,
+                                 dose_units='RELATIVE', unit_scale=1.0):
+        """Set reconstructed volume for export.
+
+        geometry is the reconstruction 'parameters' dict (for voxel_size_mm /
+        origin_mm); dose_units is 'GY' once a calibration has been applied, and
+        unit_scale converts the volume into that unit (0.01 for cGy -> Gy).
+        """
         self.reconstructed_volume = volume
+        self.geometry = geometry or {}
+        self.dose_units = dose_units
+        self.unit_scale = unit_scale
         self.update_export_status()
 
     def browse_output_path(self):
@@ -106,11 +118,14 @@ class ExportWidget(QWidget):
         self.export_button.setEnabled(False)
 
         try:
-            scale_factor = self.scale_spin.value()
+            scale_factor = self.scale_spin.value() * self.unit_scale
             success = export_reconstructed_dicom(
                 self.reconstructed_volume,
                 self.output_path,
-                scale_factor
+                scale_factor,
+                voxel_size_mm=self.geometry.get('voxel_size_mm'),
+                origin_mm=self.geometry.get('origin_mm'),
+                dose_units=self.dose_units
             )
 
             if success:

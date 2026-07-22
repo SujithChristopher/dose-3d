@@ -52,12 +52,20 @@ class BatchCalibrationWorker(QThread):
                     raise RuntimeError(captured['error'])
 
                 vol = captured['result']['reconstructed_volume']
+                geometry = captured['result']['parameters']
                 cz, cy, cx = (s // 2 for s in vol.shape)
                 patch = vol[cz - 1:cz + 2, cy - 1:cy + 2, cx - 1:cx + 2]
                 pixel_value = float(np.mean(patch))
 
                 if self.recons_dir is not None and export_reconstructed_dicom is not None:
-                    export_reconstructed_dicom(vol, str(self.recons_dir / f"{label}.dcm"), scale_factor=1.0)
+                    # Uncalibrated reconstruction - RELATIVE, since these volumes are
+                    # the input to the calibration rather than a dose in gray.
+                    export_reconstructed_dicom(
+                        vol, str(self.recons_dir / f"{label}.dcm"), scale_factor=1.0,
+                        voxel_size_mm=geometry.get('voxel_size_mm'),
+                        origin_mm=geometry.get('origin_mm'),
+                        dose_units='RELATIVE',
+                        series_description=f"EPID_Recon_{label}"[:64])
 
                 results.append({'folder': label, 'dose_cGy': dose, 'pixel_value': pixel_value})
                 self.acquisition_done.emit(label, dose, pixel_value)

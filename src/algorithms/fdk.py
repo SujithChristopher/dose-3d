@@ -53,7 +53,10 @@ class OptimizedFDKReconstructor:
         projection_fft = fft(projection_padded, axis=1)
         convoluted_freq = projection_fft * fh_RL_fft
         convoluted_time = ifft(convoluted_freq, axis=1).real
-        filtered_projection = convoluted_time[:, :Ncolumns]
+        # filter_SL builds the kernel with its peak at sample Nfft/2, not at 0, so
+        # the circular convolution comes out delayed by that much. Reading from
+        # offset 0 returns the wrong half of the signal (wrong shape and sign).
+        filtered_projection = convoluted_time[:, Nfft // 2:Nfft // 2 + Ncolumns]
 
         return filtered_projection
 
