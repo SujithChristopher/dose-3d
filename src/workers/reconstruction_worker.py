@@ -7,6 +7,22 @@ from PySide6.QtCore import QThread, Signal
 from ..algorithms.fdk import OptimizedFDKReconstructor
 from ..optional_deps import dcmread, cv2, ThreadPoolExecutor, PI
 
+# Backproject the ramp-filtered projections instead of the weighted ones.
+#
+# Deliberately off, and deliberately not exposed in the GUI. The filter itself is
+# correct (it reproduces the analytic ramp response on a disc projection to within
+# 3%), but it is the wrong operator for this data: an EPID differential frame is a
+# broad fluence map whose content sits at ~DC, while the ramp has zero gain at DC
+# and rises linearly to the 0.336 mm-pitch Nyquist, where only detector noise
+# lives. Measured on real frames it takes projection SNR from ~86-180 down to
+# ~4-6, and the reconstruction correlates only 0.47 with the unfiltered one.
+#
+# Unfiltered backprojection is a 1/r-blurred superposition of the delivered
+# fluence, which is what the dose calibration was fitted against. Flip this to
+# True only alongside detector binning and filter apodisation - see the v0.1.8
+# regression analysis.
+USE_RAMP_FILTER = False
+
 
 class ReconstructionWorker(QThread):
     """Worker thread for reconstruction to keep GUI responsive"""
@@ -183,6 +199,7 @@ class ReconstructionWorker(QThread):
                     'SDD': SDD,
                     'delta_dd': delta_dd,
                     'detector_pixel_mm': width,
+                    'ramp_filter': USE_RAMP_FILTER,
                     'n_projections': len(processed_angles),
                     'image_size': self.params['image_size'],
                     'voxel_size_mm': (dz, dx, dx),
@@ -203,8 +220,10 @@ class ReconstructionWorker(QThread):
         # Prepare filter
         Ncolumns = projections.shape[2]
         Nrows = projections.shape[1]
-        Nfft = reconstructor.nearestPowerOf2(2 * Ncolumns - 1)
-        fh_RL = reconstructor.filter_SL(Nfft, reconstructor.delta_dd)
+        fh_RL = None
+        if USE_RAMP_FILTER:
+            Nfft = reconstructor.nearestPowerOf2(2 * Ncolumns - 1)
+            fh_RL = reconstructor.filter_SL(Nfft, reconstructor.delta_dd)
 
         # Initialize result
         MX = reconstructor.Nimage
@@ -224,10 +243,14 @@ class ReconstructionWorker(QThread):
                 weighted_projection = reconstructor.Fun_Weigth_Projection(
                     projection_beta, reconstructor.SOD, reconstructor.delta_dd)
 
-                filtered_projection = reconstructor.optimize_convolution(weighted_projection, fh_RL)
+                if USE_RAMP_FILTER:
+                    projection_to_backproject = reconstructor.optimize_convolution(
+                        weighted_projection, fh_RL)
+                else:
+                    projection_to_backproject = weighted_projection
 
                 temp_rec = reconstructor.Fun_BackProjection(
-                    filtered_projection, reconstructor.SOD, n_angles,
+                    projection_to_backproject, reconstructor.SOD, n_angles,
                     beta_rad[angle_idx], reconstructor.delta_dd, reconstructor.Nimage)
 
                 chunk_result += temp_rec
