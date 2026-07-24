@@ -26,7 +26,8 @@
       "Bash(pip install:*)",
       "Bash(ls:*)",
       "Bash(gh --version)",
-      "Bash(uv --version)"
+      "Bash(uv --version)",
+      "Bash(graphify query *)"
     ],
     "deny": []
   }

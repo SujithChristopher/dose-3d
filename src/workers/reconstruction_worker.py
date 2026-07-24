@@ -176,6 +176,10 @@ class ReconstructionWorker(QThread):
                 reconstructor, processed_images, processed_angles,
                 chunk_size=self.params.get('chunk_size', 25))
             rec_image = np.transpose(rec_image, (2,1,0))   # (x,y,z) -> (z,y,x)
+            # Backprojection lays Z out inferior-to-superior, opposite the DICOM
+            # patient convention, so sagittal/coronal come out upside down. Flip Z
+            # here (not in the viewer) so the exported RTDOSE geometry matches too.
+            rec_image = rec_image[::-1, :, :]
 
             self.progress_update.emit(100)
             self.status_update.emit("Reconstruction complete!")
