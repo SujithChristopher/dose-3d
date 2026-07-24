@@ -55,7 +55,7 @@ _STORED_MAX = 1_000_000
 
 def export_reconstructed_dicom(reconstructed_volume, output_path, scale_factor=1.0,
                                voxel_size_mm=None, origin_mm=None,
-                               dose_units='cGy', frame_of_reference_uid=None,
+                               dose_units='GY', frame_of_reference_uid=None,
                                patient_id=None, patient_name=None,
                                series_description=None):
     """
