@@ -176,10 +176,14 @@ class ReconstructionWorker(QThread):
                 reconstructor, processed_images, processed_angles,
                 chunk_size=self.params.get('chunk_size', 25))
             rec_image = np.transpose(rec_image, (2,1,0))   # (x,y,z) -> (z,y,x)
-            # Backprojection lays Z out inferior-to-superior, opposite the DICOM
-            # patient convention, so sagittal/coronal come out upside down. Flip Z
-            # here (not in the viewer) so the exported RTDOSE geometry matches too.
-            rec_image = rec_image[::-1, :, :]
+            # Backprojection lays the sagittal (Y,Z) plane out 180 rotated versus the
+            # DICOM patient convention: Z runs inferior-to-superior and Y runs
+            # anterior-to-posterior, both reversed. Flip both here (Z then Y) rather
+            # than in the viewer, so the exported RTDOSE is physically corrected and
+            # VeriSoft registers it without a manual rotation. The reconstruction grid
+            # is symmetric about isocentre (IPP/GFOV centred), so flipping the pixel
+            # data while leaving the geometry tags keeps data and tags consistent.
+            rec_image = rec_image[::-1, ::-1, :]
 
             self.progress_update.emit(100)
             self.status_update.emit("Reconstruction complete!")
